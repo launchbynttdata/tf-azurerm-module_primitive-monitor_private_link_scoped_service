@@ -28,8 +28,7 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 		rgName := terraform.Output(t, ctx.TerratestTerraformOptions(), "resource_group_name")
 
 		workspace := azure.GetLogAnalyticsWorkspace(t, logAnalyticsName, rgName, subscriptionId)
-		assert.NotEmpty(t, workspace.PrivateLinkScopedResources)
-		if len(*workspace.PrivateLinkScopedResources) > 0 {
+		if assert.NotEmpty(t, *workspace.PrivateLinkScopedResources) {
 			assert.Equal(t, strings.ToLower(resourceId), strings.ToLower(*(*workspace.PrivateLinkScopedResources)[0].ResourceID))
 		}
 	})
