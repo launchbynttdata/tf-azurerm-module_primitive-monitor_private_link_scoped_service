@@ -49,7 +49,7 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 }
 
 func privateLinkScopeName(scopeID string) string {
-	const marker = "/privateLinkScopes/"
+	const marker = "/privatelinkscopes/"
 	idx := strings.Index(strings.ToLower(scopeID), marker)
 	if idx < 0 {
 		return ""
