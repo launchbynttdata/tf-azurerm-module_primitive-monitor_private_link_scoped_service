@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/monitor/armmonitor"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/operationalinsights/armoperationalinsights"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/launchbynttdata/lcaf-component-terratest/types"
 	"github.com/stretchr/testify/assert"
@@ -36,15 +37,36 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 		credential, err := azidentity.NewDefaultAzureCredential(nil)
 		require.NoError(t, err, "failed to create Azure credential")
 
-		client, err := armmonitor.NewPrivateLinkScopedResourcesClient(subscriptionID, credential, nil)
+		scopedResourceClient, err := armmonitor.NewPrivateLinkScopedResourcesClient(subscriptionID, credential, nil)
 		require.NoError(t, err, "failed to create PrivateLinkScopedResourcesClient")
 
-		scopedResource, err := client.Get(context.Background(), rgName, scopeName, logAnalyticsName, nil)
+		scopedResource, err := scopedResourceClient.Get(context.Background(), rgName, scopeName, logAnalyticsName, nil)
 		require.NoError(t, err, "failed to get private link scoped resource")
+		require.NotNil(t, scopedResource.ID)
 		require.NotNil(t, scopedResource.Properties)
 		require.NotNil(t, scopedResource.Properties.LinkedResourceID)
 
-		assert.Equal(t, strings.ToLower(resourceID), strings.ToLower(*scopedResource.Properties.LinkedResourceID))
+		assert.Equal(t, strings.ToLower(resourceID), strings.ToLower(*scopedResource.ID))
+
+		workspaceClient, err := armoperationalinsights.NewWorkspacesClient(subscriptionID, credential, nil)
+		require.NoError(t, err, "failed to create WorkspacesClient")
+
+		workspace, err := workspaceClient.Get(context.Background(), rgName, logAnalyticsName, nil)
+		require.NoError(t, err, "failed to get log analytics workspace")
+		require.NotNil(t, workspace.ID)
+		require.NotNil(t, workspace.Properties)
+		require.NotEmpty(t, workspace.Properties.PrivateLinkScopedResources, "log analytics workspace must reference a scoped service")
+
+		assert.Equal(t, strings.ToLower(*workspace.ID), strings.ToLower(*scopedResource.Properties.LinkedResourceID))
+
+		foundScopedServiceLink := false
+		for _, scopedLink := range workspace.Properties.PrivateLinkScopedResources {
+			if scopedLink.ResourceID != nil && strings.EqualFold(*scopedLink.ResourceID, resourceID) {
+				foundScopedServiceLink = true
+				break
+			}
+		}
+		assert.True(t, foundScopedServiceLink, "log analytics workspace must reference the scoped service resource ID")
 	})
 }
 
